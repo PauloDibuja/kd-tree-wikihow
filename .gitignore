@@ -6,4 +6,3 @@ llama_wikihow
 Makefile
 *.csv
 CMakeCache.txt
-**.gguf

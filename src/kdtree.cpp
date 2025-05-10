@@ -102,11 +102,11 @@ public:
         return min_dist;
     }
     
-    std::vector<Point> kNearestNeighbors(std::vector<Point>& targets,int k){
+    std::vector<Point> kNearestNeighbors(std::vector<Point>& user_data,int k){
         std::vector<Point> knn_neighbors;
-        Point target= VectorXd::Zero(targets[0].size());
-        for (unsigned int j = 0; j < targets.size(); ++j) {
-            std::vector<Point> neighbors = kNearestNeighbors(targets[j], k);
+        Point target= VectorXd::Zero(user_data[0].size());
+        for (unsigned int j = 0; j < user_data.size(); ++j) {
+            std::vector<Point> neighbors = kNearestNeighbors(user_data[j], k);
             knn_neighbors.insert(knn_neighbors.end(), neighbors.begin(), neighbors.end());
         }
         return knn_neighbors;

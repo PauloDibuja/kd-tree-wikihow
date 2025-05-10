@@ -40,10 +40,8 @@ std::vector<signed long> execute_comparison(std::vector<Point> &user_data, std::
     temp_user_data.clear();
     temp_vector_data.clear();
 
-    for (int i = 0; i < n_rows; ++i) {
-        temp_user_data.push_back(user_data[i]);
-        temp_vector_data.push_back(vector_data[i]);
-    }
+    temp_user_data = std::vector<Point>(user_data.begin(), user_data.begin() + n_rows);
+    temp_vector_data = std::vector<Point>(vector_data.begin(), vector_data.begin() + n_rows);
 
     KDTree tree(temp_vector_data);
 
@@ -68,7 +66,6 @@ std::vector<signed long> execute_comparison(std::vector<Point> &user_data, std::
     std::cout << "Time of execution | KDTree version:  " << search_time2 << "[ms]" << std::endl;
 
     std::cout << "--------------<End Iterative / KD Tree>--------------" << std::endl << std::endl;
-
     return std::vector<signed long>{search_time, search_time2};
 }
 
