@@ -112,6 +112,22 @@ public:
         return knn_neighbors;
     }
 
+    int get_memory_usage() {
+        int memory_usage = 0;
+        std::queue<KDNodePtr*> queue;
+        queue.push(&root);
+        while (!queue.empty()) {
+            KDNodePtr* node = queue.front();
+            queue.pop();
+            if (*node) {
+                memory_usage += sizeof(**node);
+                queue.push(&(*node)->left);
+                queue.push(&(*node)->right);
+            }
+        }
+        return memory_usage;
+    }
+
     private:
      KDNodePtr root;
 };
