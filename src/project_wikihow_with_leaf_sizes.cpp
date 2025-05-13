@@ -35,30 +35,31 @@ WikiHowArticle parseJSONArray(const std::string& line) {
     return article;
 }
 
-std::vector<signed long> execute_comparison(std::vector<Point> &user_data, std::vector<Point> &vector_data, std::vector<Point> &temp_user_data, std::vector<Point> &temp_vector_data, int n_rows) {
+std::vector<signed long> execute_comparison(std::vector<Point> &user_data, std::vector<Point> &vector_data, std::vector<Point> &temp_user_data, std::vector<Point> &temp_vector_data, int n_rows, int leaf_size) {
     
     temp_user_data.clear();
     temp_vector_data.clear();
-
-    // It assumes that temp_user_data and temp_vector_data are not considered as input of the algorithms
     temp_user_data = std::vector<Point>(user_data.begin(), user_data.begin() + n_rows);
     temp_vector_data = std::vector<Point>(vector_data.begin(), vector_data.begin() + n_rows);
+        
+    if(leaf_size == 1){
+        // It assumes that temp_user_data and temp_vector_data are not considered as input of the algorithms
     
+        // Iterative version
+        auto start1=high_resolution_clock::now();
+        
+        std::vector<int> nn_index = find_nearest_neighbor(temp_user_data, temp_vector_data);
+        
+        auto end1=high_resolution_clock::now();
+        
+        auto space1 = 0; // Iterative version does not use extra space
+        auto search_time=duration_cast<milliseconds>(end1-start1).count();
+        
+        std::cout << "Time of execution | Iterative version:  " << search_time << "[ms]" << std::endl;
+        std::cout << "Space complexity | Iterative version:  " << space1 << "[bytes]" << std::endl;
+    }
     
-    // Iterative version
-    auto start1=high_resolution_clock::now();
-    
-    std::vector<int> nn_index = find_nearest_neighbor(temp_user_data, temp_vector_data);
-    
-    auto end1=high_resolution_clock::now();
-    
-    auto space1 = 0; // Iterative version does not use extra space
-    auto search_time=duration_cast<milliseconds>(end1-start1).count();
-    
-    std::cout << "Time of execution | Iterative version:  " << search_time << "[ms]" << std::endl;
-    std::cout << "Space complexity | Iterative version:  " << space1 << "[bytes]" << std::endl;
-    
-    KDTree tree(temp_vector_data);
+    KDTree tree(temp_vector_data, leaf_size);
     // KDTree version
 
     auto start2=high_resolution_clock::now();
@@ -70,21 +71,22 @@ std::vector<signed long> execute_comparison(std::vector<Point> &user_data, std::
     auto search_time2=duration_cast<milliseconds>(end2-start2).count();
     auto space2 = tree.get_memory_usage(); // Tree version uses extra space
 
-    std::cout << "Time of execution | KDTree version:  " << search_time2 << "[ms]" << std::endl;
-    std::cout << "Space complexity | KDTree version:  " << space2 << "[bytes]" << std::endl;
+    std::cout << "Time of execution | KDTree version (leaf_size " << leaf_size << "):  " << search_time2 << "[ms]" << std::endl;
+    std::cout << "Space complexity | KDTree version(leaf_size " << leaf_size << "):  "<< space2 << "[bytes]" << std::endl;
 
     std::cout << "--------------<End Iterative / KD Tree>--------------" << std::endl << std::endl;
-    return std::vector<signed long>{search_time, search_time2, space1, space2};
+    return std::vector<signed long>{0, search_time2, 0, space2};
 }
 
 // project_wikihow <text_file.jsonl> num_rows step
 int main(int argc, char** argv) {
-    if (argc < 4) {
+    if (argc < 5) {
         std::cerr << "Usage: " << argv[0] << " <text_file.jsonl> num_rows step <results.csv>" <<  std::endl;
         std::cerr << "It reads first n rows of the text file and tests iterative and kdtree methods with subvectors increasing by <step> " << std::endl;
         std::cerr << "text_file.jsonl [Required] - input file with jsonl format" << std::endl;
         std::cerr << "num_rows [Required] - number of rows to read from the file" << std::endl;
         std::cerr << "step [Required] - number of rows to increase the size of the subvector" << std::endl;
+        std::cerr << "leaf_sizes [Optional] - default 1" << std::endl;
         std::cerr << "results.csv [Optional] - default name" << std::endl;
         return 1;
     }
@@ -96,15 +98,25 @@ int main(int argc, char** argv) {
     }
 
     std::string results_file = "results.csv";
-    if (argc == 5) {
-        results_file = argv[4];
+    int leaf_sizes = 1; // Default leaf sizes
+
+    if (argc >= 5) {
+        leaf_sizes = atoi(argv[4]);
+        if (leaf_sizes < 1) {
+            std::cerr << "Leaf size must be greater than 0. Using default value of 1." << std::endl;
+            leaf_sizes = 1;
+        }
+        std::cout << "Leaf size: " << leaf_sizes << std::endl;
+    }
+    if (argc == 6) {
+        results_file = argv[5];
     }
     std::ofstream results(results_file);
     if (!results.is_open()) {
         std::cerr << "Failed to open results file: " << results_file << std::endl;
         return 1;
     }
-    results << "n_rows;Time Iterative;Time KDTree;Space Iterative; Space KD Tree" << std::endl;
+    results << "n_rows;Leaf Size;Time Iterative;Time KDTree;Space Iterative; Space KD Tree" << std::endl;
 
     int n_rows=atoi(argv[2]);
 
@@ -140,11 +152,15 @@ int main(int argc, char** argv) {
     std::vector<Point> temp_user_data;
     std::vector<Point> temp_vector_data;
 
-    for(int i = 1; i <= n_rows; i+=step){
-        std::cout << "--------------<Step>--------------" << std::endl << std::endl;
-        std::cout << "Step: " << i << std::endl;
-        auto times = execute_comparison(user_data, vector_data, temp_user_data, temp_vector_data, i);
-        results << i << ";" << times[0] << ";" << times[1] << ";" << times[2] << ";" << times[3] << std::endl;
+    for(int leaf_size = 2; leaf_size <= leaf_sizes; ++leaf_size){
+        std::cout << "--------------<Leaf Size>--------------" << std::endl << std::endl;
+        std::cout << "Leaf size: " << leaf_size << std::endl;
+        for(int i = step; i <= n_rows; i+=step){
+            std::cout << "--------------<Step>--------------" << std::endl << std::endl;
+            std::cout << "Step: " << i << std::endl;
+            auto times = execute_comparison(user_data, vector_data, temp_user_data, temp_vector_data, i, leaf_size);
+            results << i << ";" << leaf_size << ";" << times[0] << ";" << times[1] << ";" << times[2] << ";" << times[3] << std::endl;
+        }
     }
 
     results.close();

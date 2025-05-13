@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     std::vector<Point> temp_user_data;
     std::vector<Point> temp_vector_data;
 
-    for(int i = 1; i <= n_rows; i+=step){
+    for(int i = step; i <= n_rows; i+=step){
         std::cout << "--------------<Step>--------------" << std::endl << std::endl;
         std::cout << "Step: " << i << std::endl;
         auto times = execute_comparison(user_data, vector_data, temp_user_data, temp_vector_data, i);

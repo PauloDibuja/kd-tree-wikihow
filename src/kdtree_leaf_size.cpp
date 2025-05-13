@@ -5,7 +5,6 @@
 #include <queue>
 #include <cmath>
 
-
 using namespace Eigen;
 using Point = VectorXd;
 using Neighbor = std::pair<double, Point>; // {distancia, punto}
@@ -23,12 +22,18 @@ using KDNodePtr = std::unique_ptr<KDNode>;
 
 class KDTree {
 public:
-    KDTree(const std::vector<Point>& points, int depth = 0) {
+    KDTree(const std::vector<Point>& points, int leaf_size = 1, int depth = 0) 
+        : leaf_size(leaf_size) {
         root = build(points, depth);
     }
 
     KDNodePtr build(std::vector<Point> points, int depth) {
         if (points.empty()) return nullptr;
+
+        // Caso base: si el número de puntos es menor o igual al leaf_size
+        if (points.size() <= leaf_size) {
+            return std::make_unique<KDNode>(points[0]); // Crear un nodo hoja
+        }
 
         int k = points[0].size();
         int axis = depth % k;
@@ -39,7 +44,6 @@ public:
 
         size_t median_index = points.size() / 2;
         Point median_point = points[median_index];
-        //std::cout  << "Median Index: " <<  median_index  << ", Depth: " <<  depth  << ", Point: " << median_point.transpose() << "\n";
         std::vector<Point> left_points(points.begin(), points.begin() + median_index);
         std::vector<Point> right_points(points.begin() + median_index + 1, points.end());
 
@@ -57,40 +61,57 @@ public:
         printTree(node->right, depth + 1);
     }
 
-    void print(){
+    void print() {
+        if (!root) {
+            std::cout << "KDTree is empty." << std::endl; // Caso base: árbol vacío
+            return;
+        }
         printTree(root);
     }
 
-    double distance_squared(Point& point1,  Point& point2){
-        double dist = (point1 - point2).squaredNorm();
-        return dist;
+    double distance_squared(Point& point1, Point& point2) {
+        return (point1 - point2).squaredNorm();
     }
 
-    double minSearch( KDNodePtr& node,  Point& target, int depth,std::vector<Neighbor>& knn_neighbors){
-        if (!node) return std::numeric_limits<double>::max();;
+    double minSearch(KDNodePtr& node, Point& target, int depth, std::vector<Neighbor>& knn_neighbors) {
+        if (!node) return std::numeric_limits<double>::max(); // Caso base: nodo vacío
 
         int axis = depth % target.size();
-        double dist = distance_squared(node->point,target);
-        Neighbor neighbor = std::make_pair(dist,node->point);
+        double dist = distance_squared(node->point, target);
+        Neighbor neighbor = std::make_pair(dist, node->point);
         knn_neighbors.push_back(neighbor);
+
+        // Caso base: si el nodo es una hoja, no buscar más
+        if (!node->left && !node->right) {
+            return dist;
+        }
+
         bool goLeft = target(axis) < node->point(axis);
         KDNodePtr& first = goLeft ? node->left : node->right;
         KDNodePtr& second = goLeft ? node->right : node->left;
-        //std::cout << "point : " << node->point.transpose()  << ", distance : " << dist << std::endl;
-        double new_dist=minSearch(first, target,depth + 1,knn_neighbors);
-        double best=std::min(dist,new_dist);        
+
+        double new_dist = minSearch(first, target, depth + 1, knn_neighbors);
+        double best = std::min(dist, new_dist);
+
         return best;
     }
 
-    std::vector<Point> kNearestNeighbors(Point& target,int k){
+    std::vector<Point> kNearestNeighbors(Point& target, int k) {
+        if (!root) {
+            std::cerr << "Error: KDTree is empty. Cannot perform kNearestNeighbors." << std::endl; // Caso base
+            return {};
+        }
+
         std::vector<Neighbor> all_neighbors;
         std::vector<Point> knn_neighbors;
-        double min_dist=minSearch(root,target,0,all_neighbors);
+        double min_dist = minSearch(root, target, 0, all_neighbors);
+
         std::sort(all_neighbors.begin(), all_neighbors.end(), [](const Neighbor& a, const Neighbor& b) {
             return a.first < b.first;
         });
-        int r=std::min(int(all_neighbors.size()),k);
-        for(int i=0;i<r;i++){
+
+        int r = std::min(int(all_neighbors.size()), k);
+        for (int i = 0; i < r; i++) {
             knn_neighbors.push_back(all_neighbors[i].second);
         }
         return knn_neighbors;
@@ -103,8 +124,17 @@ public:
     }
     
     std::vector<Point> kNearestNeighbors(std::vector<Point>& user_data,int k){
+        if (!root) {
+            std::cerr << "Error: KDTree is empty. Cannot perform kNearestNeighbors." << std::endl; // Caso base
+            return {};
+        }
+
+        if (user_data.empty()) {
+            std::cerr << "Error: Input data is empty. Cannot perform kNearestNeighbors." << std::endl; // Caso base
+            return {};
+        }
+
         std::vector<Point> knn_neighbors;
-        Point target= VectorXd::Zero(user_data[0].size());
         for (unsigned int j = 0; j < user_data.size(); ++j) {
             std::vector<Point> neighbors = kNearestNeighbors(user_data[j], k);
             knn_neighbors.insert(knn_neighbors.end(), neighbors.begin(), neighbors.end());
@@ -113,6 +143,8 @@ public:
     }
 
     int get_memory_usage() {
+        if (!root) return 0; // Caso base: árbol vacío
+
         int memory_usage = 0;
         std::queue<KDNodePtr*> queue;
         queue.push(&root);
@@ -130,6 +162,7 @@ public:
 
     private:
      KDNodePtr root;
+     int leaf_size; // Tamaño mínimo de las hojas
 };
 
 

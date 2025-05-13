@@ -3,6 +3,7 @@
 cmake_install.cmake
 CMakeFiles/**
 llama_wikihow
+llama_wikihow_with_leaf_sizes
 Makefile
 *.csv
 CMakeCache.txt
